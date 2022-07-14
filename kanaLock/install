@@ -1,0 +1,8 @@
+#!/bin/bash
+
+dir=$(pwd)
+
+cp kanaLock kanaLockPatch
+sed -i "s|dir=|dir=$dir|g" kanaLockPatch
+sudo cp kanaLockPatch /usr/local/bin/kanaLock
+rm kanaLockPatch

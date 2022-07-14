@@ -1,0 +1,51 @@
+#!/bin/bash
+
+trap '' 2
+
+if [[ "$1" == "" ]]; then
+	kana=92
+	arr="hkArr"
+	arr2="rArr2"
+	rNum=$((RANDOM % 92))
+elif [[ "$1" == "-h" ]]; then
+	kana=46
+	arr="hArr"
+	arr2="rArr"
+	rNum=$((RANDOM % 46))
+elif [[ "$1" == "-k" ]]; then
+	kana=46
+	arr="kArr"
+	arr2="rArr"
+	rNum=$((RANDOM % 46))
+else
+	echo "Unknown Argument"
+	exit
+fi
+
+dir=
+
+read -a hArr < $dir/hiragana.array
+read -a kArr < $dir/katakana.array
+read -a rArr < $dir/romaji.array
+hkArr=("${hArr[@]}" "${kArr[@]}")
+rArr2=("${rArr[@]}" "${rArr[@]}")
+
+ReadChar () {
+	eval echo \${$arr[$rNum]}
+	read -p "Romaji:" readCharInput
+	eval "answerChar=\${$arr2[$rNum]}"
+	if [[ "$readCharInput" == "$answerChar" ]]; then
+		echo "Correct!"
+		sleep 1
+		clear
+		trap 2
+		exit
+	else
+		echo "WRONG"
+		sleep 1
+		clear
+		ReadChar
+	fi
+}
+
+ReadChar

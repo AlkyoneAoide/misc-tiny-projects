@@ -1,0 +1,151 @@
+#!/bin/sh
+
+
+help() {
+	echo "Usage: ./fetch-pics <start date> <end date>"
+	echo "Date should be specified as a string of eight numbers; year, month, day"
+	echo "For example, Aug. 1st, 2021 would be represented as 20210801"
+	echo "Requires wget and ffmpeg"
+}
+
+err() {
+	rm -f image_"$count".png
+
+	error=true
+	err_count=$((${err_count#0}+1))
+	if [ "$err_count" -le 9 ]; then
+			err_count="0$err_count"
+	fi
+	
+	pre_url="https://rapidrefresh.noaa.gov/hrrr/HRRRsmoke/displayMapLocalDiskDateDomainZipTZA.cgi?keys=hrrr_ncep_smoke_jet:&runtime=$last_successful&plot_type=trc1_int&fcst=$err_count&time_inc=60&num_times=49&model=hrrr&ptitle=HRRR-Smoke%20Graphics&maxFcstLen=48&fcstStrLen=-1&domain=full&adtfn=1"
+	url="https://rapidrefresh.noaa.gov/hrrr/HRRRsmoke/for_web/hrrr_ncep_smoke_jet/$last_successful/full/trc1_int_f$err_count.png"
+	wget "$pre_url" -q -O - > /dev/null
+	wget "$url" -q -O image_"$count".png && echo "replaced $year$month$day$hour with $last_successful forecast at $err_count (image $count)" || echo "Image $count Not Found"
+
+	count=$((${count#0}+1))
+
+	hour=$((${hour#0}+1))
+	if [ "$hour" -le 9 ]; then
+		hour="0$hour"
+	fi
+}
+
+if [ "$1" = "help" ] || [ "$1" = "h" ] || [ "$1" = "" ] || [ "$2" = "" ] || [ "${#1}" -ne 8 ] || [ "${#2}" -ne 8 ]; then
+	help
+	exit
+fi
+
+
+# THE ACTUAL PROGRAM
+
+year="$( echo "$1" | cut -c -4 )"
+month="$( echo "$1" | cut -c 5-6 )"
+day="$( echo "$1" | cut -c 7- )"
+
+end_year="$( echo "$2" | cut -c -4 )"
+end_month="$( echo "$2" | cut -c 5-6 )"
+end_day="$( echo "$2" | cut -c 7- )"
+
+count="0"
+err_count="00"
+last_successful=""
+
+#YEAR LOOP
+while [ "$year" -le "$end_year" ]; do
+
+	#MONTH LOOP
+	while [ "$month" -le "$end_month" ] && [ "$year" -le "$end_year" ]; do
+
+		#DAY LOOP
+		while [ "$day" -le "$end_day" ] && [ "$month" -le "$end_month" ] && [ "$year" -le "$end_year" ]; do
+			hour="00"
+		
+			#HOUR LOOP
+			while [ "$hour" -le 23 ]; do
+				error=false
+				
+				pre_url="https://rapidrefresh.noaa.gov/hrrr/HRRRsmoke/displayMapLocalDiskDateDomainZipTZA.cgi?keys=hrrr_ncep_smoke_jet:&runtime=$year$month$day$hour&plot_type=trc1_int&fcst=00&time_inc=60&num_times=49&model=hrrr&ptitle=HRRR-Smoke%20Graphics&maxFcstLen=48&fcstStrLen=-1&domain=full&adtfn=1"
+				url="https://rapidrefresh.noaa.gov/hrrr/HRRRsmoke/for_web/hrrr_ncep_smoke_jet/$year$month$day$hour/full/trc1_int_f00.png"
+				wget "$pre_url" -q -O - > /dev/null
+				wget "$url" -q -O image_"$count".png || err
+
+				if [ "$error" = true ]; then
+					continue
+				fi
+				err_count="00"
+				last_successful="$year$month$day$hour"
+
+				echo "got $year$month$day$hour"
+
+				count=$((${count#0}+1))
+
+				hour=$((${hour#0}+1))
+				if [ "$hour" -le 9 ]; then
+					hour="0$hour"
+				fi
+				
+			done
+
+			day=$((${day#0}+1))
+			if [ "$day" -le 9 ]; then
+				day="0$day"
+			fi
+			
+			if [ "$month" -le 7 ]; then
+				if [ "$month" -eq 2 ]; then
+					if [ "$( echo "$year" | rev | cut -c -2 )" = "00" ]; then
+						if [ $((${year#0}%400)) -eq 0 ]; then
+							#is a leap year
+							if [ "$day" -eq 30 ]; then
+								break
+							fi
+						fi
+					fi
+					if [ $((${year#0}%4)) -eq 0 ]; then
+						#is a leap year
+						if [ "$day" -eq 30 ]; then
+							break
+						fi
+					fi
+					if [ "$day" -eq 29 ]; then
+						break
+					fi
+				fi
+				if [ $((${month#0}%2)) -eq 0 ] && [ "$day" -eq 31 ]; then
+					break
+				fi
+				if [ $((${month#0}%2)) -eq 1 ] && [ "$day" -eq 32 ]; then
+					break
+				fi
+			fi
+			if [ "$month" -ge 8 ]; then
+				if [ $((${month#0}%2)) -eq 0 ] && [ "$day" -eq 32 ]; then
+					break
+				fi
+				if [ $((${month#0}%2)) -eq 1 ] && [ "$day" -eq 31 ]; then
+					break
+				fi
+			fi
+		done
+
+		day="01"
+
+		month=$((${month#0}+1))
+		if [ "$month" -le 9 ]; then
+			month="0$month"
+		fi
+
+		if [ "$month" -eq 13 ]; then
+			break
+		fi
+
+	done
+
+	month="01"
+	year=$((${year#0}+1))
+done
+
+
+# CREATE VIDEO
+
+ffmpeg -framerate 24 -i image_%d.png output.mp4
