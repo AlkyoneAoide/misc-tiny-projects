@@ -1,1 +1,1 @@
-## A tool to retrieve sequential vertical smoke maps from NOAA
+## A script to retrieve sequential vertical smoke maps from NOAA
